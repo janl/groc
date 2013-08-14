@@ -98,28 +98,27 @@ module.exports = Utils =
     segments = []
     currSegment = new @Segment
 
-    # Enforced whitespace after the comment token
-    whitespaceMatch = if options.requireWhitespaceAfterToken then '\\s' else '\\s?'
-
-    # We only support single line comments for the time being.
-    singleLineMatcher = ///^\s*(#{language.singleLineComment.join('|')})#{whitespaceMatch}(.*)$///
-
+    in_comment = false
     for line in lines
-      # Match that line to the language's single line comment syntax.
-      #
-      # However, we treat all comments beginning with } as inline code commentary.
-      match = line.match singleLineMatcher
+      if not in_comment
+        if line.indexOf('/*') != -1 and line.indexOf('*/') == -1
+          # we have a start of a multi line comment, but not closing on the same line
 
-      #} For example, this comment should be treated as part of our code.
-      if match? and match[2]?[0] != '}'
-        if currSegment.code.length > 0
-          segments.push currSegment
-          currSegment = new @Segment
+          # maybe init new segment
+          if currSegment.code.length > 0
+            segments.push currSegment
+            currSegment = new @Segment
 
-        currSegment.comments.push match[2]
-
+          in_comment = true
+          currSegment.comments.push line.replace(/\/\*\s?/, '')  #cleanup
+        else
+          currSegment.code.push line
       else
-        currSegment.code.push line
+
+        if line.indexOf('*/') != -1
+          in_comment = false
+
+        currSegment.comments.push line.replace('*/', '')
 
     segments.push currSegment
     segments
